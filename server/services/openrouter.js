@@ -2,13 +2,21 @@ const fetch = require('node-fetch');
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+/**
+ * Call AI with optional vision support.
+ * @param {string} systemPrompt
+ * @param {string|Array} userMessage - string or array of content blocks for vision
+ */
 async function callAI(systemPrompt, userMessage) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured');
   }
 
-  const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o';
+  const model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
+
+  // userMessage can be a string or an array of content blocks (for vision)
+  const userContent = Array.isArray(userMessage) ? userMessage : userMessage;
 
   try {
     const response = await fetch(OPENROUTER_API_URL, {
@@ -23,7 +31,7 @@ async function callAI(systemPrompt, userMessage) {
         model,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
+          { role: 'user', content: userContent }
         ],
         temperature: 0.7,
         max_tokens: 2000

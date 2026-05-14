@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import AIResultDisplay from '../components/AIResultDisplay';
@@ -11,6 +11,12 @@ import {
   FileText,
   MessageSquare,
   Sparkles,
+  History,
+  Upload,
+  X,
+  Search,
+  Calculator,
+  BookOpen,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -80,6 +86,30 @@ const TOOLS = [
     gradient: 'from-purple-500 to-purple-600',
     hoverGradient: 'from-purple-600 to-purple-700',
   },
+  {
+    id: 'market_price',
+    name: 'Market Price Lookup',
+    description: 'Get current market price ranges with comparable sales data',
+    icon: Search,
+    gradient: 'from-cyan-500 to-cyan-600',
+    hoverGradient: 'from-cyan-600 to-cyan-700',
+  },
+  {
+    id: 'loan_calc',
+    name: 'Loan Calculator',
+    description: 'AI-recommended loan amount, interest rate, and redemption timeline',
+    icon: Calculator,
+    gradient: 'from-teal-500 to-teal-600',
+    hoverGradient: 'from-teal-600 to-teal-700',
+  },
+  {
+    id: 'compliance',
+    name: 'Compliance Checker',
+    description: 'Jurisdiction-specific pawn shop regulations and requirements',
+    icon: BookOpen,
+    gradient: 'from-slate-500 to-slate-600',
+    hoverGradient: 'from-slate-600 to-slate-700',
+  },
 ];
 
 const initialForms = {
@@ -122,6 +152,23 @@ const initialForms = {
     customer_asking_price: '',
     market_conditions: 'normal',
   },
+  market_price: {
+    category: '',
+    description: '',
+    condition: 'Good',
+    brand: '',
+    model: '',
+  },
+  loan_calc: {
+    appraisedValue: '',
+    itemCategory: '',
+    customerId: '',
+  },
+  compliance: {
+    jurisdiction: '',
+    businessType: 'Traditional pawn shop (buy/sell/loan)',
+    specificQuestion: '',
+  },
 };
 
 export default function AITools() {
@@ -130,6 +177,32 @@ export default function AITools() {
   const [result, setResult] = useState(null);
   const [resultType, setResultType] = useState('valuation');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('tools'); // 'tools' | 'history'
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPagination, setHistoryPagination] = useState({ total: 0, totalPages: 1 });
+  const [historyExpanded, setHistoryExpanded] = useState(null);
+  const [counterfeitPhoto, setCounterfeitPhoto] = useState(null);
+
+  const fetchHistory = async (page = 1) => {
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get(`/ai/history?page=${page}&limit=20`);
+      setHistory(data.data || []);
+      setHistoryPagination(data.pagination || { total: 0, totalPages: 1 });
+    } catch (err) {
+      toast.error('Failed to load AI history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory(historyPage);
+    }
+  }, [activeTab, historyPage]);
 
   function updateForm(toolId, field, value) {
     setForms((prev) => ({
@@ -207,14 +280,30 @@ export default function AITools() {
             setLoading(false);
             return;
           }
-          payload = {
-            item_description: f.item_description,
-            category: f.category || undefined,
-            brand: f.brand || undefined,
-            serial_number: f.serial_number || undefined,
-            photos_description: f.photos_description || undefined,
-          };
-          break;
+          // Use FormData to support optional photo upload
+          const formData = new FormData();
+          formData.append('item_description', f.item_description);
+          if (f.category) formData.append('category', f.category);
+          if (f.brand) formData.append('brand', f.brand);
+          if (f.serial_number) formData.append('serial_number', f.serial_number);
+          if (f.photos_description) formData.append('photos_description', f.photos_description);
+          if (counterfeitPhoto) formData.append('photo', counterfeitPhoto);
+
+          try {
+            const res = await api.post(endpoint, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setResult(res.data);
+            setResultType(activeTool);
+            toast.success(res.data.photo_analyzed ? 'AI analysis complete (with photo)' : 'AI analysis complete');
+          } catch (err) {
+            const message = err.response?.data?.error || err.response?.data?.message || 'AI analysis failed';
+            toast.error(message);
+            setResult(null);
+          } finally {
+            setLoading(false);
+          }
+          return; // handled inline above
         }
         case 'regulatory': {
           endpoint = '/ai/regulatory-report';
@@ -243,6 +332,53 @@ export default function AITools() {
             estimated_value: f.estimated_value ? Number(f.estimated_value) : undefined,
             customer_asking_price: f.customer_asking_price ? Number(f.customer_asking_price) : undefined,
             market_conditions: f.market_conditions || 'normal',
+          };
+          break;
+        }
+        case 'market_price': {
+          endpoint = '/ai/market-price';
+          const f = forms.market_price;
+          if (!f.category || !f.description.trim()) {
+            toast.error('Category and description are required');
+            setLoading(false);
+            return;
+          }
+          payload = {
+            category: f.category,
+            description: f.description,
+            condition: f.condition || 'Good',
+            brand: f.brand || undefined,
+            model: f.model || undefined,
+          };
+          break;
+        }
+        case 'loan_calc': {
+          endpoint = '/ai/loan-recommendation';
+          const f = forms.loan_calc;
+          if (!f.appraisedValue) {
+            toast.error('Appraised value is required');
+            setLoading(false);
+            return;
+          }
+          payload = {
+            appraisedValue: Number(f.appraisedValue),
+            itemCategory: f.itemCategory || undefined,
+            customerId: f.customerId ? Number(f.customerId) : undefined,
+          };
+          break;
+        }
+        case 'compliance': {
+          endpoint = '/ai/compliance-check';
+          const f = forms.compliance;
+          if (!f.jurisdiction.trim()) {
+            toast.error('Jurisdiction is required');
+            setLoading(false);
+            return;
+          }
+          payload = {
+            jurisdiction: f.jurisdiction,
+            businessType: f.businessType || undefined,
+            specificQuestion: f.specificQuestion || undefined,
           };
           break;
         }
@@ -489,12 +625,42 @@ export default function AITools() {
           />
         </div>
         <TextAreaField
-          label="Photos Description"
+          label="Photos Description (optional if uploading photo)"
           value={f.photos_description}
           onChange={(v) => updateForm('counterfeit', 'photos_description', v)}
           placeholder="Describe the item's appearance: stitching quality, logo placement, material texture, weight, color accuracy, etc."
           rows={3}
         />
+        {/* Photo Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Upload Photo <span className="text-gray-400 text-xs">(optional - enables vision AI analysis)</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-sm text-gray-600 transition-colors">
+              <Upload className="w-4 h-4" />
+              {counterfeitPhoto ? counterfeitPhoto.name : 'Choose image...'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => setCounterfeitPhoto(e.target.files?.[0] || null)}
+              />
+            </label>
+            {counterfeitPhoto && (
+              <button
+                type="button"
+                onClick={() => setCounterfeitPhoto(null)}
+                className="p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {counterfeitPhoto && (
+            <p className="text-xs text-green-600 mt-1">Photo selected: AI will analyze image for counterfeit indicators</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -599,6 +765,130 @@ export default function AITools() {
     );
   }
 
+  function renderMarketPriceForm() {
+    const f = forms.market_price;
+    return (
+      <div className="space-y-4">
+        <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-lg text-xs text-cyan-700">
+          Get real-time market price ranges with comparable sales data from eBay, Facebook Marketplace, and other platforms.
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SelectField
+            label="Category"
+            value={f.category}
+            onChange={(v) => updateForm('market_price', 'category', v)}
+            options={CATEGORIES}
+            placeholder="Select category..."
+            required
+          />
+          <SelectField
+            label="Condition"
+            value={f.condition}
+            onChange={(v) => updateForm('market_price', 'condition', v)}
+            options={CONDITIONS}
+            placeholder="Select condition..."
+          />
+        </div>
+        <TextAreaField
+          label="Item Description"
+          value={f.description}
+          onChange={(v) => updateForm('market_price', 'description', v)}
+          placeholder="Describe the item (e.g., Apple iPhone 15 Pro 256GB Space Black, minor screen scratches)"
+          required
+          rows={3}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <InputField
+            label="Brand"
+            value={f.brand}
+            onChange={(v) => updateForm('market_price', 'brand', v)}
+            placeholder="e.g., Apple, Rolex, Fender"
+          />
+          <InputField
+            label="Model"
+            value={f.model}
+            onChange={(v) => updateForm('market_price', 'model', v)}
+            placeholder="e.g., iPhone 15 Pro, Submariner"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  function renderLoanCalcForm() {
+    const f = forms.loan_calc;
+    return (
+      <div className="space-y-4">
+        <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-700">
+          Get AI-recommended loan amount, interest rate, and redemption timeline based on item value and customer history.
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <InputField
+            label="Appraised Value ($)"
+            value={f.appraisedValue}
+            onChange={(v) => updateForm('loan_calc', 'appraisedValue', v)}
+            type="number"
+            placeholder="e.g., 500"
+            required
+          />
+          <SelectField
+            label="Item Category"
+            value={f.itemCategory}
+            onChange={(v) => updateForm('loan_calc', 'itemCategory', v)}
+            options={CATEGORIES}
+            placeholder="Select category..."
+          />
+          <InputField
+            label="Customer ID (optional)"
+            value={f.customerId}
+            onChange={(v) => updateForm('loan_calc', 'customerId', v)}
+            type="number"
+            placeholder="Auto-loads loan history"
+          />
+        </div>
+        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
+          If Customer ID is provided, the AI will automatically load their loan history to determine their customer tier and risk-adjusted rates.
+        </div>
+      </div>
+    );
+  }
+
+  function renderComplianceForm() {
+    const f = forms.compliance;
+    return (
+      <div className="space-y-4">
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
+          Get comprehensive pawn shop regulatory requirements for any US state or city jurisdiction.
+        </div>
+        <InputField
+          label="Jurisdiction"
+          value={f.jurisdiction}
+          onChange={(v) => updateForm('compliance', 'jurisdiction', v)}
+          placeholder="e.g., Texas, California, New York City, Chicago"
+          required
+        />
+        <SelectField
+          label="Business Type"
+          value={f.businessType}
+          onChange={(v) => updateForm('compliance', 'businessType', v)}
+          options={[
+            { value: 'Traditional pawn shop (buy/sell/loan)', label: 'Traditional Pawn Shop' },
+            { value: 'Secondhand dealer only', label: 'Secondhand Dealer Only' },
+            { value: 'Pawn shop with firearms sales', label: 'Pawn Shop with Firearms' },
+            { value: 'Online pawn / shipping-based', label: 'Online / Shipping-Based' },
+          ]}
+        />
+        <TextAreaField
+          label="Specific Question (optional)"
+          value={f.specificQuestion}
+          onChange={(v) => updateForm('compliance', 'specificQuestion', v)}
+          placeholder="e.g., What are the holding period requirements for electronics? Do I need a separate firearms license?"
+          rows={3}
+        />
+      </div>
+    );
+  }
+
   const formRenderers = {
     valuation: renderValuationForm,
     market: renderMarketForm,
@@ -606,12 +896,16 @@ export default function AITools() {
     counterfeit: renderCounterfeitForm,
     regulatory: renderRegulatoryForm,
     negotiation: renderNegotiationForm,
+    market_price: renderMarketPriceForm,
+    loan_calc: renderLoanCalcForm,
+    compliance: renderComplianceForm,
   };
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8">
+
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
@@ -630,8 +924,93 @@ export default function AITools() {
         </div>
       </div>
 
-      {/* Tool Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('tools')}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'tools' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Brain className="w-4 h-4" />
+          AI Tools
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'history' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          AI History
+        </button>
+      </div>
+
+      {/* AI History Tab */}
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          {historyLoading && (
+            <div className="text-center py-12 text-gray-400">Loading AI history...</div>
+          )}
+          {!historyLoading && history.length === 0 && (
+            <div className="text-center py-12 text-gray-400">
+              No AI analyses yet. Run some AI tools above to see history here.
+            </div>
+          )}
+          {history.map(entry => (
+            <div key={entry.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setHistoryExpanded(historyExpanded === entry.id ? null : entry.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                    {entry.endpoint}
+                  </span>
+                  {entry.inventory_id && (
+                    <span className="text-xs text-gray-500">Item #{entry.inventory_id}</span>
+                  )}
+                  <span className="text-xs text-gray-400">
+                    {new Date(entry.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <span className="text-gray-400 text-sm">{historyExpanded === entry.id ? '▲' : '▼'}</span>
+              </div>
+              {historyExpanded === entry.id && (
+                <div className="border-t border-gray-100 p-4 bg-gray-50">
+                  <pre className="text-xs text-gray-700 whitespace-pre-wrap overflow-auto max-h-64 font-mono">
+                    {typeof entry.result === 'object' ? JSON.stringify(entry.result, null, 2) : String(entry.result)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          ))}
+          {historyPagination.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                disabled={historyPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-500">
+                Page {historyPage} of {historyPagination.totalPages}
+              </span>
+              <button
+                onClick={() => setHistoryPage(p => Math.min(historyPagination.totalPages, p + 1))}
+                disabled={historyPage === historyPagination.totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tool Cards Grid - only shown in tools tab */}
+      {activeTab === 'tools' && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
           const isActive = activeTool === tool.id;

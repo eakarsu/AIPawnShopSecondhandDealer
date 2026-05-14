@@ -583,14 +583,25 @@ export default function Receipts() {
               )}
             </div>
 
-            {/* Print Button */}
-            <button
-              onClick={handlePrintReceipt}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors print:hidden"
-            >
-              <Printer className="w-4 h-4" />
-              Print Receipt
-            </button>
+            {/* Print + PDF Buttons */}
+            <div className="flex gap-2 print:hidden">
+              <button
+                onClick={handlePrintReceipt}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors"
+              >
+                <Printer className="w-4 h-4" />
+                Print
+              </button>
+              <a
+                href={`/api/receipts/${selectedReceipt.id}/pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+              >
+                PDF Download
+              </a>
+            </div>
 
             {/* Timestamps */}
             <div className="print:hidden">

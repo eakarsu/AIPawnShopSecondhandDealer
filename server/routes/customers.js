@@ -2,27 +2,41 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
-// GET / - list all customers with search/filter
+// GET / - list all customers with search/filter and pagination
 router.get('/', async (req, res) => {
   try {
     const { search, flagged } = req.query;
-    let query = 'SELECT * FROM customers WHERE 1=1';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    let whereClause = 'WHERE 1=1';
     const params = [];
 
     if (search) {
       params.push(`%${search}%`);
-      query += ` AND (first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length})`;
+      whereClause += ` AND (first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length})`;
     }
 
     if (flagged !== undefined) {
       params.push(flagged === 'true');
-      query += ` AND flagged = $${params.length}`;
+      whereClause += ` AND flagged = $${params.length}`;
     }
 
-    query += ' ORDER BY created_at DESC';
+    const countResult = await pool.query(`SELECT COUNT(*) FROM customers ${whereClause}`, params);
+    const total = parseInt(countResult.rows[0].count);
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    params.push(limit);
+    params.push(offset);
+    const dataResult = await pool.query(
+      `SELECT * FROM customers ${whereClause} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({
+      data: dataResult.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
   } catch (err) {
     console.error('List customers error:', err);
     res.status(500).json({ error: 'Internal server error' });

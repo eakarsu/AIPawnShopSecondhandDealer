@@ -77,6 +77,8 @@ export default function PreciousMetals() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [metalFilter, setMetalFilter] = useState('all');
+  const [spotPrices, setSpotPrices] = useState(null);
+  const [spotLoading, setSpotLoading] = useState(false);
 
   const [inventoryItems, setInventoryItems] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -133,9 +135,22 @@ export default function PreciousMetals() {
     }
   };
 
+  const fetchSpotPrices = async () => {
+    setSpotLoading(true);
+    try {
+      const { data } = await api.get('/precious-metals/spot-price');
+      setSpotPrices(data);
+    } catch (err) {
+      toast.error('Failed to fetch spot prices');
+    } finally {
+      setSpotLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInventory();
     fetchCustomers();
+    fetchSpotPrices();
   }, []);
 
   useEffect(() => {
@@ -550,6 +565,71 @@ export default function PreciousMetals() {
           New Test Entry
         </button>
       </div>
+
+      {/* Spot Price Display */}
+      {(spotPrices || spotLoading) && (
+        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-amber-800">Live Spot Prices</h3>
+            <div className="flex items-center gap-2">
+              {spotPrices?.source === 'mock' && (
+                <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Reference Only</span>
+              )}
+              <button
+                onClick={fetchSpotPrices}
+                disabled={spotLoading}
+                className="text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1"
+              >
+                <RefreshCw className={`w-3 h-3 ${spotLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
+          {spotLoading ? (
+            <div className="text-sm text-amber-600">Loading spot prices...</div>
+          ) : spotPrices ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {spotPrices.gold_usd_per_troy_oz && (
+                <div className="text-center">
+                  <p className="text-xs text-amber-600 font-medium">Gold</p>
+                  <p className="text-lg font-bold text-amber-800">${parseFloat(spotPrices.gold_usd_per_troy_oz).toLocaleString()}</p>
+                  <p className="text-xs text-amber-500">per troy oz</p>
+                  {spotPrices.gold_usd_per_gram && (
+                    <p className="text-xs text-amber-600">${spotPrices.gold_usd_per_gram}/g</p>
+                  )}
+                </div>
+              )}
+              {spotPrices.silver_usd_per_troy_oz && (
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 font-medium">Silver</p>
+                  <p className="text-lg font-bold text-gray-700">${parseFloat(spotPrices.silver_usd_per_troy_oz).toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">per troy oz</p>
+                  {spotPrices.silver_usd_per_gram && (
+                    <p className="text-xs text-gray-500">${spotPrices.silver_usd_per_gram}/g</p>
+                  )}
+                </div>
+              )}
+              {spotPrices.platinum_usd_per_troy_oz && (
+                <div className="text-center">
+                  <p className="text-xs text-blue-600 font-medium">Platinum</p>
+                  <p className="text-lg font-bold text-blue-700">${parseFloat(spotPrices.platinum_usd_per_troy_oz).toLocaleString()}</p>
+                  <p className="text-xs text-blue-400">per troy oz</p>
+                </div>
+              )}
+              {spotPrices.palladium_usd_per_troy_oz && (
+                <div className="text-center">
+                  <p className="text-xs text-purple-600 font-medium">Palladium</p>
+                  <p className="text-lg font-bold text-purple-700">${parseFloat(spotPrices.palladium_usd_per_troy_oz).toLocaleString()}</p>
+                  <p className="text-xs text-purple-400">per troy oz</p>
+                </div>
+              )}
+            </div>
+          ) : null}
+          {spotPrices?.note && (
+            <p className="text-xs text-amber-500 mt-2">{spotPrices.note}</p>
+          )}
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3">

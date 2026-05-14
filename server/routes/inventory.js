@@ -1,6 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const auth = require('../middleware/auth');
+
+// Multer disk storage for item photos
+const photoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '..', 'uploads', 'items');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `item-${req.params.id}-${Date.now()}${ext}`);
+  }
+});
+const photoUpload = multer({
+  storage: photoStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/jpeg|jpg|png|gif|webp/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  }
+});
 
 // GET /stats/summary - inventory stats (must be before /:id)
 router.get('/stats/summary', async (req, res) => {
@@ -25,32 +50,49 @@ router.get('/stats/summary', async (req, res) => {
   }
 });
 
-// GET / - list all inventory with filters
+// GET / - list all inventory with filters and pagination
 router.get('/', async (req, res) => {
   try {
     const { status, category, search } = req.query;
-    let query = 'SELECT i.*, c.first_name || \' \' || c.last_name as customer_name FROM inventory i LEFT JOIN customers c ON i.customer_id = c.id WHERE 1=1';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    let whereClause = 'WHERE 1=1';
     const params = [];
 
     if (status) {
       params.push(status);
-      query += ` AND i.status = $${params.length}`;
+      whereClause += ` AND i.status = $${params.length}`;
     }
 
     if (category) {
       params.push(category);
-      query += ` AND i.category = $${params.length}`;
+      whereClause += ` AND i.category = $${params.length}`;
     }
 
     if (search) {
       params.push(`%${search}%`);
-      query += ` AND (i.name ILIKE $${params.length} OR i.description ILIKE $${params.length} OR i.serial_number ILIKE $${params.length} OR i.brand ILIKE $${params.length})`;
+      whereClause += ` AND (i.name ILIKE $${params.length} OR i.description ILIKE $${params.length} OR i.serial_number ILIKE $${params.length} OR i.brand ILIKE $${params.length})`;
     }
 
-    query += ' ORDER BY i.created_at DESC';
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM inventory i ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    params.push(limit);
+    params.push(offset);
+    const dataResult = await pool.query(
+      `SELECT i.*, c.first_name || ' ' || c.last_name as customer_name FROM inventory i LEFT JOIN customers c ON i.customer_id = c.id ${whereClause} ORDER BY i.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({
+      data: dataResult.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
   } catch (err) {
     console.error('List inventory error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -176,6 +218,34 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete inventory item error:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /:id/upload-photo — upload a photo for an item
+router.post('/:id/upload-photo', auth, photoUpload.single('photo'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+
+    const photoUrl = `/uploads/items/${req.file.filename}`;
+
+    const result = await pool.query(
+      'UPDATE inventory SET photo_url = $1, updated_at = NOW() WHERE id = $2 RETURNING id, name, photo_url',
+      [photoUrl, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({
+      success: true,
+      photo_url: photoUrl,
+      item: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Photo upload error:', err);
+    res.status(500).json({ error: err.message || 'Photo upload failed' });
   }
 });
 

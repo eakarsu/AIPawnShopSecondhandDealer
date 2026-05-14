@@ -54,6 +54,10 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterFlagged, setFilterFlagged] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [customerRiskLoading, setCustomerRiskLoading] = useState(false);
+  const [customerRiskResult, setCustomerRiskResult] = useState(null);
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -70,20 +74,25 @@ export default function Customers() {
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page, limit: 20 };
       if (search.trim()) params.search = search.trim();
       if (filterFlagged === 'flagged') params.flagged = 'true';
       if (filterFlagged === 'clean') params.flagged = 'false';
 
       const { data } = await api.get('/customers', { params });
-      setCustomers(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setCustomers(data);
+      } else {
+        setCustomers(data.data || []);
+        setPagination(data.pagination || { total: 0, totalPages: 1 });
+      }
     } catch (err) {
       console.error('Fetch customers error:', err);
       toast.error('Failed to load customers');
     } finally {
       setLoading(false);
     }
-  }, [search, filterFlagged]);
+  }, [search, filterFlagged, page]);
 
   useEffect(() => {
     const debounce = setTimeout(() => {
@@ -91,6 +100,20 @@ export default function Customers() {
     }, 300);
     return () => clearTimeout(debounce);
   }, [fetchCustomers]);
+
+  const handleCustomerRiskScore = async (customerId) => {
+    setCustomerRiskLoading(true);
+    setCustomerRiskResult(null);
+    try {
+      const { data } = await api.post('/ai/customer-risk-score', { customer_id: customerId });
+      setCustomerRiskResult(data);
+      toast.success('Customer risk score generated');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to generate risk score');
+    } finally {
+      setCustomerRiskLoading(false);
+    }
+  };
 
   const handleRowClick = async (customer) => {
     try {
@@ -523,6 +546,25 @@ export default function Customers() {
                 />
               </div>
             </div>
+          {/* AI Customer Risk Score */}
+          {selectedCustomer && (
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                onClick={() => handleCustomerRiskScore(selectedCustomer.id)}
+                disabled={customerRiskLoading}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-sm shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {customerRiskLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Scoring...
+                  </>
+                ) : (
+                  'AI Customer Risk Score'
+                )}
+              </button>
+            </div>
+          )}
           </div>
         )}
       </DetailPanel>
@@ -808,6 +850,86 @@ export default function Customers() {
           </div>
         </div>
       </Modal>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {page} of {pagination.totalPages} ({pagination.total} customers)
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {/* Customer Risk Score Modal */}
+      {customerRiskResult && (
+        <Modal title="Customer Risk Score" onClose={() => setCustomerRiskResult(null)} size="md">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <p className="text-sm text-gray-500">Risk Score</p>
+                <p className={`text-3xl font-bold ${
+                  customerRiskResult.customer_risk?.risk_score > 70 ? 'text-red-600' :
+                  customerRiskResult.customer_risk?.risk_score > 40 ? 'text-amber-600' : 'text-green-600'
+                }`}>
+                  {customerRiskResult.customer_risk?.risk_score ?? '-'}/100
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Tier</p>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                  customerRiskResult.customer_risk?.tier === 'very_high' ? 'bg-red-100 text-red-700' :
+                  customerRiskResult.customer_risk?.tier === 'high' ? 'bg-orange-100 text-orange-700' :
+                  customerRiskResult.customer_risk?.tier === 'medium' ? 'bg-amber-100 text-amber-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {customerRiskResult.customer_risk?.tier || 'N/A'}
+                </span>
+              </div>
+            </div>
+            {customerRiskResult.customer_risk?.max_recommended_loan != null && (
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Max Recommended Loan:</span>{' '}
+                ${customerRiskResult.customer_risk.max_recommended_loan.toLocaleString()}
+              </p>
+            )}
+            {customerRiskResult.loan_history_summary && (
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <p className="text-xs text-blue-600">Total Loans</p>
+                  <p className="font-bold text-blue-700">{customerRiskResult.loan_history_summary.totalLoans}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3">
+                  <p className="text-xs text-green-600">Redeemed</p>
+                  <p className="font-bold text-green-700">{customerRiskResult.loan_history_summary.redeemed}</p>
+                </div>
+                <div className="bg-red-50 rounded-lg p-3">
+                  <p className="text-xs text-red-600">Defaults</p>
+                  <p className="font-bold text-red-700">{customerRiskResult.loan_history_summary.defaulted}</p>
+                </div>
+              </div>
+            )}
+            {customerRiskResult.customer_risk?.reasoning && (
+              <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                {customerRiskResult.customer_risk.reasoning}
+              </p>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

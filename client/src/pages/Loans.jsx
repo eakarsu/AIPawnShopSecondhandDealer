@@ -86,6 +86,8 @@ export default function Loans() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
 
   const [customers, setCustomers] = useState([]);
 
@@ -119,11 +121,16 @@ export default function Loans() {
   const fetchLoans = async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page, limit: 20 };
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== 'all') params.status = statusFilter;
       const { data } = await api.get('/loans', { params });
-      setLoans(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setLoans(data);
+      } else {
+        setLoans(data.data || []);
+        setPagination(data.pagination || { total: 0, totalPages: 1 });
+      }
     } catch (err) {
       console.error('Fetch loans error:', err);
       toast.error('Failed to load loans');
@@ -151,7 +158,7 @@ export default function Loans() {
       fetchLoans();
     }, 300);
     return () => clearTimeout(debounce);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, page]);
 
   // Row click -> detail
   const handleRowClick = async (loan) => {
@@ -1229,6 +1236,29 @@ export default function Loans() {
           </div>
         </div>
       </Modal>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {page} of {pagination.totalPages} ({pagination.total} loans)
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }

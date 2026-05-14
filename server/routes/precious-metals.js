@@ -2,6 +2,64 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
+// ── In-memory spot price cache (1 hour) ─────────────────────────
+let spotPriceCache = null;
+let spotPriceCachedAt = 0;
+const SPOT_CACHE_MS = 60 * 60 * 1000; // 1 hour
+
+// GET /spot-price - live precious metals spot prices (cached 1 hour)
+router.get('/spot-price', async (req, res) => {
+  try {
+    const now = Date.now();
+    if (spotPriceCache && (now - spotPriceCachedAt) < SPOT_CACHE_MS) {
+      return res.json({ ...spotPriceCache, cached: true, cached_at: new Date(spotPriceCachedAt).toISOString() });
+    }
+
+    const apiKey = process.env.METALS_API_KEY || process.env.EXCHANGE_RATES_API_KEY;
+
+    if (apiKey) {
+      try {
+        // Try metals-api.com or open exchange rates
+        const fetch = require('node-fetch');
+        const response = await fetch(
+          `https://www.goldapi.io/api/XAU/USD`,
+          { headers: { 'x-access-token': apiKey, 'Content-Type': 'application/json' } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          spotPriceCache = {
+            gold_usd_per_troy_oz: data.price,
+            silver_usd_per_troy_oz: null,
+            source: 'goldapi.io',
+            note: 'Live price from goldapi.io'
+          };
+          spotPriceCachedAt = now;
+          return res.json({ ...spotPriceCache, cached: false });
+        }
+      } catch (e) {
+        // Fall through to mock
+      }
+    }
+
+    // Mock prices when API key not configured
+    spotPriceCache = {
+      gold_usd_per_troy_oz: 2340.00,
+      silver_usd_per_troy_oz: 28.50,
+      platinum_usd_per_troy_oz: 980.00,
+      palladium_usd_per_troy_oz: 960.00,
+      gold_usd_per_gram: parseFloat((2340.00 / 31.1035).toFixed(4)),
+      silver_usd_per_gram: parseFloat((28.50 / 31.1035).toFixed(4)),
+      source: 'mock',
+      note: 'Set METALS_API_KEY or EXCHANGE_RATES_API_KEY for live prices. These are approximate reference values.'
+    };
+    spotPriceCachedAt = now;
+    res.json({ ...spotPriceCache, cached: false });
+  } catch (err) {
+    console.error('Spot price error:', err);
+    res.status(500).json({ error: 'Failed to fetch spot prices' });
+  }
+});
+
 // GET /stats/summary - summary stats (must be before /:id)
 router.get('/stats/summary', async (req, res) => {
   try {

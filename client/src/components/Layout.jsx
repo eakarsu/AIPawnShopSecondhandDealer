@@ -41,6 +41,24 @@ const navItems = [
   { label: 'Notifications', icon: Bell, path: '/notifications' },
   { label: 'Reports', icon: BarChart3, path: '/reports' },
   { label: 'AI Tools', icon: Brain, path: '/ai-tools' },
+  { label: 'AI Predictive', icon: BarChart3, path: '/ai-predictive' },
+  // === Batch 06 Gaps & Frontend Mounts ===
+  { path: '/cf-agentic-valuation', label: 'Agentic valuation', icon: '✨' },
+  { path: '/cf-compliance-automation', label: 'Compliance automation', icon: '✨' },
+  { path: '/cf-pricing-recommendation-engine', label: 'Pricing recommendation engine', icon: '✨' },
+  { path: '/cf-customer-segmentation-marketing', label: 'Customer segmentation + marketing', icon: '✨' },
+  { path: '/cf-loan-default-prediction-intervention', label: 'Loan default prediction + intervention', icon: '✨' },
+  { path: '/gap-auctions-without-auction', label: 'Auctions without `/auction', icon: '✨' },
+  { path: '/gap-hold', label: 'Hold', icon: '✨' },
+  { path: '/gap-cash', label: 'Cash', icon: '✨' },
+  { path: '/gap-customers-without-customer', label: 'Customers without `/customer', icon: '✨' },
+  { path: '/gap-no-integration-with-ncic-stolen-goods-databases-fb', label: 'No integration with NCIC/stolen goods databases (FBI/Interpol)', icon: '✨' },
+  { path: '/gap-limited-atf-firearms-tracking-integration-some-int', label: 'Limited ATF firearms tracking integration (some integration code exists but no real ATF connector)', icon: '✨' },
+  { path: '/gap-no-customer-id-verification-system-age-address-for', label: 'No customer ID verification system (age, address for regulated items)', icon: '✨' },
+  { path: '/gap-no-multi', label: 'No multi', icon: '✨' },
+  { path: '/gap-no-audit-trail-dedicated-module-grep-showed-0-audi', label: 'No audit trail dedicated module (grep showed 0 audit mentions)', icon: '✨' },
+  { path: '/gap-no-webhooks-for-stolen', label: 'No webhooks for stolen', icon: '✨' },
+  { path: '/gap-no-mobile-app-for-showroom-floor-staff', label: 'No mobile app for showroom floor staff', icon: '✨' }
 ];
 
 export default function Layout({ children, onLogout }) {

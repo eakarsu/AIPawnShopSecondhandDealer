@@ -18,8 +18,26 @@ import Auctions from './pages/Auctions';
 import Notifications from './pages/Notifications';
 import Reports from './pages/Reports';
 import AITools from './pages/AITools';
+import AIPredictive from './pages/AIPredictive';
 import Layout from './components/Layout';
 
+// // === Batch 06 Gaps & Frontend Mounts ===
+import CFAgenticValuationPage from './pages/CFAgenticValuationPage';
+import CFComplianceAutomationPage from './pages/CFComplianceAutomationPage';
+import CFPricingRecommendationEnginePage from './pages/CFPricingRecommendationEnginePage';
+import CFCustomerSegmentationMarketingPage from './pages/CFCustomerSegmentationMarketingPage';
+import CFLoanDefaultPredictionInterventionPage from './pages/CFLoanDefaultPredictionInterventionPage';
+import GapAuctionsWithoutAuctionPage from './pages/GapAuctionsWithoutAuctionPage';
+import GapHoldPage from './pages/GapHoldPage';
+import GapCashPage from './pages/GapCashPage';
+import GapCustomersWithoutCustomerPage from './pages/GapCustomersWithoutCustomerPage';
+import GapNoIntegrationWithNcicStolenGoodsDatabasesFbPage from './pages/GapNoIntegrationWithNcicStolenGoodsDatabasesFbPage';
+import GapLimitedAtfFirearmsTrackingIntegrationSomeIntPage from './pages/GapLimitedAtfFirearmsTrackingIntegrationSomeIntPage';
+import GapNoCustomerIdVerificationSystemAgeAddressForPage from './pages/GapNoCustomerIdVerificationSystemAgeAddressForPage';
+import GapNoMultiPage from './pages/GapNoMultiPage';
+import GapNoAuditTrailDedicatedModuleGrepShowed0AudiPage from './pages/GapNoAuditTrailDedicatedModuleGrepShowed0AudiPage';
+import GapNoWebhooksForStolenPage from './pages/GapNoWebhooksForStolenPage';
+import GapNoMobileAppForShowroomFloorStaffPage from './pages/GapNoMobileAppForShowroomFloorStaffPage';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
@@ -60,7 +78,26 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/ai-tools" element={<AITools />} />
+          <Route path="/ai-predictive" element={<AIPredictive />} />
           <Route path="*" element={<Navigate to="/" />} />
+        
+          {/* // === Batch 06 Gaps & Frontend Mounts === */}
+          <Route path="/cf-agentic-valuation" element={<CFAgenticValuationPage />} />
+          <Route path="/cf-compliance-automation" element={<CFComplianceAutomationPage />} />
+          <Route path="/cf-pricing-recommendation-engine" element={<CFPricingRecommendationEnginePage />} />
+          <Route path="/cf-customer-segmentation-marketing" element={<CFCustomerSegmentationMarketingPage />} />
+          <Route path="/cf-loan-default-prediction-intervention" element={<CFLoanDefaultPredictionInterventionPage />} />
+          <Route path="/gap-auctions-without-auction" element={<GapAuctionsWithoutAuctionPage />} />
+          <Route path="/gap-hold" element={<GapHoldPage />} />
+          <Route path="/gap-cash" element={<GapCashPage />} />
+          <Route path="/gap-customers-without-customer" element={<GapCustomersWithoutCustomerPage />} />
+          <Route path="/gap-no-integration-with-ncic-stolen-goods-databases-fb" element={<GapNoIntegrationWithNcicStolenGoodsDatabasesFbPage />} />
+          <Route path="/gap-limited-atf-firearms-tracking-integration-some-int" element={<GapLimitedAtfFirearmsTrackingIntegrationSomeIntPage />} />
+          <Route path="/gap-no-customer-id-verification-system-age-address-for" element={<GapNoCustomerIdVerificationSystemAgeAddressForPage />} />
+          <Route path="/gap-no-multi" element={<GapNoMultiPage />} />
+          <Route path="/gap-no-audit-trail-dedicated-module-grep-showed-0-audi" element={<GapNoAuditTrailDedicatedModuleGrepShowed0AudiPage />} />
+          <Route path="/gap-no-webhooks-for-stolen" element={<GapNoWebhooksForStolenPage />} />
+          <Route path="/gap-no-mobile-app-for-showroom-floor-staff" element={<GapNoMobileAppForShowroomFloorStaffPage />} />
         </Routes>
       </Layout>
     </Router>

@@ -22,39 +22,51 @@ async function generateTicketNumber() {
   return `${prefix}${String(seq).padStart(3, '0')}`;
 }
 
-// GET / - list all loans with filters
+// GET / - list all loans with filters and pagination
 router.get('/', async (req, res) => {
   try {
     const { status, customer_id, search } = req.query;
-    let query = `
-      SELECT l.*,
-        c.first_name || ' ' || c.last_name as customer_name,
-        i.name as item_name, i.category as item_category
-      FROM loans l
-      LEFT JOIN customers c ON l.customer_id = c.id
-      LEFT JOIN inventory i ON l.inventory_id = i.id
-      WHERE 1=1`;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    let whereClause = 'WHERE 1=1';
     const params = [];
 
     if (status) {
       params.push(status);
-      query += ` AND l.status = $${params.length}`;
+      whereClause += ` AND l.status = $${params.length}`;
     }
 
     if (customer_id) {
       params.push(customer_id);
-      query += ` AND l.customer_id = $${params.length}`;
+      whereClause += ` AND l.customer_id = $${params.length}`;
     }
 
     if (search) {
       params.push(`%${search}%`);
-      query += ` AND (l.ticket_number ILIKE $${params.length} OR l.item_description ILIKE $${params.length} OR c.first_name ILIKE $${params.length} OR c.last_name ILIKE $${params.length})`;
+      whereClause += ` AND (l.ticket_number ILIKE $${params.length} OR l.item_description ILIKE $${params.length} OR c.first_name ILIKE $${params.length} OR c.last_name ILIKE $${params.length})`;
     }
 
-    query += ' ORDER BY l.created_at DESC';
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM loans l LEFT JOIN customers c ON l.customer_id = c.id ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    params.push(limit);
+    params.push(offset);
+    const dataResult = await pool.query(
+      `SELECT l.*, c.first_name || ' ' || c.last_name as customer_name, i.name as item_name, i.category as item_category
+       FROM loans l LEFT JOIN customers c ON l.customer_id = c.id LEFT JOIN inventory i ON l.inventory_id = i.id
+       ${whereClause} ORDER BY l.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({
+      data: dataResult.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
   } catch (err) {
     console.error('List loans error:', err);
     res.status(500).json({ error: 'Internal server error' });

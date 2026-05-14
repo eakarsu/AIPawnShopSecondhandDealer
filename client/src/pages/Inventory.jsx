@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
@@ -20,6 +20,9 @@ import {
   Layers,
   Star,
   Info,
+  Camera,
+  Eye,
+  Shield,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -91,6 +94,8 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
 
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -104,24 +109,37 @@ export default function Inventory() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Photo upload + AI appraisal state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [appraising, setAppraising] = useState(false);
+  const [checkingStolen, setCheckingStolen] = useState(false);
+  const [appraisalResult, setAppraisalResult] = useState(null);
+  const [stolenResult, setStolenResult] = useState(null);
+  const photoInputRef = useRef(null);
+
   /* ---- Fetch ---- */
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { page, limit: 20 };
       if (search.trim()) params.search = search.trim();
       if (filterCategory) params.category = filterCategory;
       if (filterStatus) params.status = filterStatus;
 
       const { data } = await api.get('/inventory', { params });
-      setItems(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setItems(data);
+      } else {
+        setItems(data.data || []);
+        setPagination(data.pagination || { total: 0, totalPages: 1 });
+      }
     } catch (err) {
       console.error('Fetch inventory error:', err);
       toast.error('Failed to load inventory');
     } finally {
       setLoading(false);
     }
-  }, [search, filterCategory, filterStatus]);
+  }, [search, filterCategory, filterStatus, page]);
 
   useEffect(() => {
     const debounce = setTimeout(() => {
@@ -136,6 +154,8 @@ export default function Inventory() {
       const { data } = await api.get(`/inventory/${item.id}`);
       setSelectedItem(data);
       setDetailOpen(true);
+      setAppraisalResult(null);
+      setStolenResult(null);
     } catch (err) {
       console.error('Fetch item detail error:', err);
       toast.error('Failed to load item details');
@@ -238,6 +258,62 @@ export default function Inventory() {
       toast.error(message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  /* ---- Photo Upload ---- */
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedItem) return;
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const { data } = await api.post(`/inventory/${selectedItem.id}/upload-photo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Photo uploaded successfully');
+      // Refresh selected item to show new photo
+      const { data: updated } = await api.get(`/inventory/${selectedItem.id}`);
+      setSelectedItem(updated);
+      fetchItems();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Photo upload failed');
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
+  /* ---- Vision Appraisal ---- */
+  const handleVisualAppraisal = async () => {
+    if (!selectedItem) return;
+    setAppraising(true);
+    setAppraisalResult(null);
+    try {
+      const { data } = await api.post(`/ai/items/${selectedItem.id}/ai-visual-appraise`);
+      setAppraisalResult(data.appraisal);
+      toast.success('Visual appraisal complete');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Visual appraisal failed');
+    } finally {
+      setAppraising(false);
+    }
+  };
+
+  /* ---- Stolen Check ---- */
+  const handleStolenCheck = async () => {
+    if (!selectedItem) return;
+    setCheckingStolen(true);
+    setStolenResult(null);
+    try {
+      const { data } = await api.post(`/ai/items/${selectedItem.id}/check-stolen`);
+      setStolenResult(data.assessment);
+      toast.success('Stolen item check complete');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Stolen check failed');
+    } finally {
+      setCheckingStolen(false);
     }
   };
 
@@ -564,6 +640,131 @@ export default function Inventory() {
               </div>
             )}
 
+            {/* Photo */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Item Photo
+              </h3>
+              {selectedItem.photo_url ? (
+                <div className="space-y-2">
+                  <img
+                    src={selectedItem.photo_url}
+                    alt={selectedItem.name}
+                    className="w-full rounded-lg border border-gray-200 object-cover max-h-48"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-24 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-sm">
+                  No photo uploaded
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={photoInputRef}
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors"
+              >
+                {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {uploadingPhoto ? 'Uploading...' : selectedItem.photo_url ? 'Replace Photo' : 'Upload Photo'}
+              </button>
+            </div>
+
+            {/* AI Actions */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                AI Analysis
+              </h3>
+              <div className="space-y-2">
+                <button
+                  onClick={handleVisualAppraisal}
+                  disabled={appraising || !selectedItem.photo_url}
+                  title={!selectedItem.photo_url ? 'Upload a photo first to enable vision appraisal' : ''}
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {appraising ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                  {appraising ? 'Appraising...' : 'AI Visual Appraisal'}
+                </button>
+                <button
+                  onClick={handleStolenCheck}
+                  disabled={checkingStolen}
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg disabled:opacity-50 transition-all"
+                >
+                  {checkingStolen ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {checkingStolen ? 'Checking...' : 'Check Stolen Risk'}
+                </button>
+              </div>
+
+              {/* Appraisal Result */}
+              {appraisalResult && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                  <div className="font-semibold text-amber-800 text-sm">Visual Appraisal Result</div>
+                  {appraisalResult.item_identified && (
+                    <div className="text-xs text-amber-700">Item: {appraisalResult.item_identified}</div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white rounded p-2">
+                      <div className="text-gray-400">Condition</div>
+                      <div className="font-semibold">{appraisalResult.condition_grade} ({appraisalResult.condition_score}/10)</div>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <div className="text-gray-400">Pawn Value</div>
+                      <div className="font-semibold text-amber-700">
+                        ${appraisalResult.estimated_pawn_value?.toLocaleString() || '-'}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <div className="text-gray-400">Resale Value</div>
+                      <div className="font-semibold">${appraisalResult.estimated_resale_value?.toLocaleString() || '-'}</div>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <div className="text-gray-400">Confidence</div>
+                      <div className="font-semibold capitalize">{appraisalResult.confidence}</div>
+                    </div>
+                  </div>
+                  {appraisalResult.condition_details?.overall && (
+                    <p className="text-xs text-amber-700">{appraisalResult.condition_details.overall}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Stolen Check Result */}
+              {stolenResult && (
+                <div className={`mt-3 p-3 border rounded-lg space-y-2 ${
+                  stolenResult.risk_level === 'critical' || stolenResult.risk_level === 'high'
+                    ? 'bg-red-50 border-red-200'
+                    : stolenResult.risk_level === 'moderate'
+                    ? 'bg-amber-50 border-amber-200'
+                    : 'bg-green-50 border-green-200'
+                }`}>
+                  <div className={`font-semibold text-sm ${
+                    stolenResult.risk_level === 'critical' || stolenResult.risk_level === 'high'
+                      ? 'text-red-800'
+                      : stolenResult.risk_level === 'moderate'
+                      ? 'text-amber-800'
+                      : 'text-green-800'
+                  }`}>
+                    Stolen Risk: {stolenResult.risk_level?.toUpperCase()} (Score: {stolenResult.risk_score}/100)
+                  </div>
+                  {stolenResult.police_report_required && (
+                    <div className="text-xs text-red-700 font-semibold">Police report may be required</div>
+                  )}
+                  {stolenResult.hold_period_recommendation && (
+                    <div className="text-xs">Hold period: {stolenResult.hold_period_recommendation}</div>
+                  )}
+                  {stolenResult.recommended_verification_steps?.slice(0, 3).map((step, i) => (
+                    <div key={i} className="text-xs">{step.step}. {step.action}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Record Info */}
             <div>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -847,6 +1048,29 @@ export default function Inventory() {
           </div>
         </div>
       </Modal>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {page} of {pagination.totalPages} ({pagination.total} items)
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }
