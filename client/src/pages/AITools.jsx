@@ -1045,7 +1045,7 @@ export default function AITools() {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* Active Tool Form */}
       <div

@@ -38,6 +38,11 @@ import GapNoMultiPage from './pages/GapNoMultiPage';
 import GapNoAuditTrailDedicatedModuleGrepShowed0AudiPage from './pages/GapNoAuditTrailDedicatedModuleGrepShowed0AudiPage';
 import GapNoWebhooksForStolenPage from './pages/GapNoWebhooksForStolenPage';
 import GapNoMobileAppForShowroomFloorStaffPage from './pages/GapNoMobileAppForShowroomFloorStaffPage';
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
+import TimelineView from './pages/TimelineView';
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
@@ -62,6 +67,10 @@ function App() {
       <Toaster position="top-right" />
       <Layout onLogout={handleLogout}>
         <Routes>
+        <Route path="/insights/timeline" element={<TimelineView />} />
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
           <Route path="/" element={<Dashboard />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/inventory" element={<Inventory />} />
