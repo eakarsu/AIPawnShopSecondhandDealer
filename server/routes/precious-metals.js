@@ -36,24 +36,9 @@ router.get('/spot-price', async (req, res) => {
           spotPriceCachedAt = now;
           return res.json({ ...spotPriceCache, cached: false });
         }
-      } catch (e) {
-        // Fall through to mock
-      }
+      } catch (e) { return res.status(502).json({ error: 'Metals provider request failed' }); }
     }
-
-    // Mock prices when API key not configured
-    spotPriceCache = {
-      gold_usd_per_troy_oz: 2340.00,
-      silver_usd_per_troy_oz: 28.50,
-      platinum_usd_per_troy_oz: 980.00,
-      palladium_usd_per_troy_oz: 960.00,
-      gold_usd_per_gram: parseFloat((2340.00 / 31.1035).toFixed(4)),
-      silver_usd_per_gram: parseFloat((28.50 / 31.1035).toFixed(4)),
-      source: 'mock',
-      note: 'Set METALS_API_KEY or EXCHANGE_RATES_API_KEY for live prices. These are approximate reference values.'
-    };
-    spotPriceCachedAt = now;
-    res.json({ ...spotPriceCache, cached: false });
+    return res.status(503).json({ error: 'Verified metals price provider is not configured', missing: 'METALS_API_KEY' });
   } catch (err) {
     console.error('Spot price error:', err);
     res.status(500).json({ error: 'Failed to fetch spot prices' });

@@ -28,7 +28,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
+      { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: process.env.GOVERNANCE_TENANT_ID },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -70,11 +70,12 @@ router.get('/me', authMiddleware, async (req, res) => {
 // POST /register - create new user
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, role } = req.body;
+    const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
     }
+    if (password.length < 12) return res.status(400).json({ error: 'Password must be at least 12 characters' });
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
@@ -86,12 +87,12 @@ router.post('/register', async (req, res) => {
 
     const result = await pool.query(
       'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, created_at',
-      [email, hashedPassword, name, role || 'employee']
+      [email, hashedPassword, name, 'employee']
     );
 
     const user = result.rows[0];
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
+      { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: process.env.GOVERNANCE_TENANT_ID },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );

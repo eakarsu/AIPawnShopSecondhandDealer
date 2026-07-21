@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 function authMiddleware(req, res, next) {
+  if ((process.env.JWT_SECRET || '').length < 32) return res.status(503).json({ error: 'Secure authentication is not configured' });
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -15,7 +16,7 @@ function authMiddleware(req, res, next) {
   const token = parts[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     req.user = decoded;
     next();
   } catch (err) {
