@@ -3,6 +3,10 @@ import { Shield, Mail, Lock, LogIn, Zap, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
+const demoPassword = import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
+  ? import.meta.env.VITE_DEMO_PASSWORD || ''
+  : '';
+
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,12 +33,12 @@ export default function Login({ onLogin }) {
     }
   };
 
-  const quickLogin = async (quickEmail, quickPassword) => {
+  const quickLogin = async (quickEmail) => {
     setEmail(quickEmail);
-    setPassword(quickPassword);
+    setPassword(demoPassword);
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { email: quickEmail, password: quickPassword });
+      const { data } = await api.post('/auth/login', { email: quickEmail, password: demoPassword });
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       toast.success(`Welcome back, ${data.user?.name || 'User'}!`);
@@ -125,8 +129,8 @@ export default function Login({ onLogin }) {
           <div className="space-y-2.5">
             <button
               type="button"
-              onClick={() => quickLogin('admin@pawnshop.com', 'admin123')}
-              disabled={loading}
+              onClick={() => quickLogin('admin@pawnshop.com')}
+              disabled={loading || !demoPassword}
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Zap className="w-4 h-4 text-amber-400" />
@@ -134,8 +138,8 @@ export default function Login({ onLogin }) {
             </button>
             <button
               type="button"
-              onClick={() => quickLogin('employee@pawnshop.com', 'employee123')}
-              disabled={loading}
+              onClick={() => quickLogin('employee@pawnshop.com')}
+              disabled={loading || !demoPassword}
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <User className="w-4 h-4 text-gray-500" />

@@ -5,8 +5,8 @@
 -- USERS (2)
 -- ============================================================
 INSERT INTO users (email, password, name, role) VALUES
-('admin@pawnshop.com', '$2a$10$5QsK6ioxXhN4E8BG3rC2L.QhlxYnG8iRyfBxL7sid5F4J/9Fk/FBC', 'Mike Rossi', 'admin'),
-('employee@pawnshop.com', '$2a$10$ZMpQ22xWKpiikLLrb/J7QOtToaK3uhCN79m.d7zruwfaMTJmHIUda', 'Sarah Chen', 'employee');
+('admin@pawnshop.com', 'DISABLED_UNTIL_LOCAL_PROVISIONING', 'Mike Rossi', 'admin'),
+('employee@pawnshop.com', 'DISABLED_UNTIL_LOCAL_PROVISIONING', 'Sarah Chen', 'employee');
 
 -- ============================================================
 -- CUSTOMERS (20)
