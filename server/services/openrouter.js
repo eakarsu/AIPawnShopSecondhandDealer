@@ -1,7 +1,5 @@
 const fetch = require('node-fetch');
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-
 /**
  * Call AI with optional vision support.
  * @param {string} systemPrompt
@@ -13,13 +11,17 @@ async function callAI(systemPrompt, userMessage) {
     throw new Error('OPENROUTER_API_KEY is not configured');
   }
 
-  const model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
+  const model = process.env.OPENROUTER_MODEL;
+  const baseUrl = process.env.OPENROUTER_BASE_URL;
+  if (!model || !baseUrl) {
+    throw new Error('OPENROUTER_MODEL and OPENROUTER_BASE_URL are required');
+  }
 
   // userMessage can be a string or an array of content blocks (for vision)
   const userContent = Array.isArray(userMessage) ? userMessage : userMessage;
 
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

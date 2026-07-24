@@ -1,11 +1,59 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-API_DIR="$PROJECT_DIR/server"
-UI_DIR="$PROJECT_DIR/client"
-MIGRATION="$API_DIR/migrations/001_governed_workflows.sql"
-value() { local key="$1" current="${!1:-}"; if [[ -n "$current" ]]; then printf '%s' "$current"; else awk -F= -v key="$key" '$1==key {sub(/^[^=]*=/, ""); gsub(/^['\"']|['\"']$/, ""); print; exit}' "$PROJECT_DIR/.env"; fi; }
-check() { command -v node >/dev/null && command -v npm >/dev/null || { echo 'node and npm are required' >&2; return 1; }; [[ -f "$PROJECT_DIR/.env" ]] || { echo 'Copy .env.example to .env and configure it' >&2; return 1; }; [[ "$(value JWT_SECRET)" =~ ^.{32,}$ ]] || { echo 'JWT_SECRET must contain at least 32 characters' >&2; return 1; }; [[ "$(value GOVERNANCE_TENANT_ID)" =~ ^[A-Za-z0-9._:-]{3,128}$ ]] || { echo 'GOVERNANCE_TENANT_ID is required' >&2; return 1; }; [[ "$(value DATABASE_URL)" == postgresql://* || "$(value DATABASE_URL)" == postgres://* ]] || { echo 'DATABASE_URL must be a PostgreSQL URL' >&2; return 1; }; [[ "$(value DATABASE_SSL)" != 'true' || -n "$(value DATABASE_CA_CERT)" ]] || { echo 'DATABASE_CA_CERT is required when DATABASE_SSL=true' >&2; return 1; }; rg -qi 'secret-key-2024|postgres123|changeme' "$PROJECT_DIR/.env" && { echo 'Replace placeholder credentials in .env' >&2; return 1; }; echo 'Configuration checks passed'; }
-migrate() { check; [[ "${ALLOW_SCHEMA_MIGRATION:-$(value ALLOW_SCHEMA_MIGRATION)}" == '1' ]] || { echo 'Set ALLOW_SCHEMA_MIGRATION=1 for the explicit migrate command' >&2; return 1; }; command -v psql >/dev/null || { echo 'psql is required for migrations' >&2; return 1; }; psql -v ON_ERROR_STOP=1 "$(value DATABASE_URL)" -f "$MIGRATION"; }
-start_services() { check; [[ -d "$API_DIR/node_modules" && -d "$UI_DIR/node_modules" ]] || { echo 'Dependencies are missing; install them explicitly in server and client' >&2; return 1; }; (cd "$API_DIR" && npm start) & api_pid=$!; (cd "$UI_DIR" && npm run dev) & ui_pid=$!; trap 'kill "$api_pid" "$ui_pid" 2>/dev/null || true' EXIT INT TERM; wait "$api_pid" "$ui_pid"; }
-case "${1:-check}" in check) check ;; migrate) migrate ;; start) start_services ;; *) echo 'Usage: ./start.sh {check|migrate|start}' >&2; exit 2 ;; esac
+cd "$PROJECT_DIR"
+
+[[ -f .env ]] || { echo 'Missing .env; configure it before starting.' >&2; exit 1; }
+set -a
+source .env
+set +a
+
+: "${DATABASE_URL:?DATABASE_URL is required}"
+: "${JWT_SECRET:?JWT_SECRET is required}"
+: "${BACKEND_PORT:?BACKEND_PORT is required}"
+: "${FRONTEND_PORT:?FRONTEND_PORT is required}"
+[[ "${ALLOW_SCHEMA_MIGRATION:-}" == "true" ]] || { echo 'ALLOW_SCHEMA_MIGRATION=true is required for additive runtime preparation.' >&2; exit 1; }
+
+for dependency_dir in server/node_modules client/node_modules; do
+  [[ -d "$dependency_dir" ]] || { echo "Missing $dependency_dir; install dependencies explicitly." >&2; exit 1; }
+done
+
+for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
+  if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "Port $port is already in use." >&2
+    exit 1
+  fi
+done
+
+(cd server && node scripts/prepareRuntime.js)
+
+API_PID=
+UI_PID=
+cleanup() {
+  local status=$?
+  trap - EXIT INT TERM
+  [[ -n "${API_PID:-}" ]] && kill "$API_PID" 2>/dev/null || true
+  [[ -n "${UI_PID:-}" ]] && kill "$UI_PID" 2>/dev/null || true
+  [[ -n "${API_PID:-}" ]] && wait "$API_PID" 2>/dev/null || true
+  [[ -n "${UI_PID:-}" ]] && wait "$UI_PID" 2>/dev/null || true
+  exit "$status"
+}
+trap cleanup EXIT INT TERM
+
+(cd server && node index.js) &
+API_PID=$!
+(cd client && npm run dev -- --host 127.0.0.1 --port "$FRONTEND_PORT" --strictPort) &
+UI_PID=$!
+
+while kill -0 "$API_PID" 2>/dev/null && kill -0 "$UI_PID" 2>/dev/null; do
+  sleep 1
+done
+
+status=0
+if ! kill -0 "$API_PID" 2>/dev/null; then
+  wait "$API_PID" || status=$?
+else
+  wait "$UI_PID" || status=$?
+fi
+exit "$status"
