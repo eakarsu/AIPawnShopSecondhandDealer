@@ -33,22 +33,9 @@ export default function Login({ onLogin }) {
     }
   };
 
-  const quickLogin = async (quickEmail) => {
+  const quickLogin = (quickEmail) => {
     setEmail(quickEmail);
     setPassword(demoPassword);
-    setLoading(true);
-    try {
-      const { data } = await api.post('/auth/login', { email: quickEmail, password: demoPassword });
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      toast.success(`Welcome back, ${data.user?.name || 'User'}!`);
-      onLogin();
-    } catch (err) {
-      const message = err.response?.data?.message || err.response?.data?.error || 'Login failed. Please try again.';
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -134,7 +121,7 @@ export default function Login({ onLogin }) {
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Zap className="w-4 h-4 text-amber-400" />
-              Login as Admin
+              Auto Fill Demo Credentials
             </button>
             <button
               type="button"
