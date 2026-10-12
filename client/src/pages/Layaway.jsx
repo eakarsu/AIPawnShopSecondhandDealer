@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -141,7 +142,7 @@ export default function Layaway() {
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== 'all') params.status = statusFilter;
       const { data } = await api.get('/layaway', { params });
-      setLayaways(Array.isArray(data) ? data : []);
+      setLayaways(recordRows(data));
     } catch (err) {
       console.error('Fetch layaways error:', err);
       toast.error('Failed to load layaway plans');
@@ -154,7 +155,7 @@ export default function Layaway() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }
@@ -164,7 +165,7 @@ export default function Layaway() {
   const fetchInventory = async () => {
     try {
       const { data } = await api.get('/inventory', { params: { status: 'available' } });
-      setInventoryItems(Array.isArray(data) ? data : []);
+      setInventoryItems(recordRows(data));
     } catch (err) {
       console.error('Fetch inventory error:', err);
     }

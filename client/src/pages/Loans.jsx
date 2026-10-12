@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -125,12 +126,8 @@ export default function Loans() {
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== 'all') params.status = statusFilter;
       const { data } = await api.get('/loans', { params });
-      if (Array.isArray(data)) {
-        setLoans(data);
-      } else {
-        setLoans(data.data || []);
-        setPagination(data.pagination || { total: 0, totalPages: 1 });
-      }
+      setLoans(recordRows(data));
+      setPagination(data?.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
       console.error('Fetch loans error:', err);
       toast.error('Failed to load loans');
@@ -143,7 +140,7 @@ export default function Loans() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }

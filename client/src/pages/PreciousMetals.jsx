@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -106,7 +107,7 @@ export default function PreciousMetals() {
       if (search.trim()) params.search = search.trim();
       if (metalFilter !== 'all') params.metal_type = metalFilter;
       const { data } = await api.get('/precious-metals', { params });
-      setTests(Array.isArray(data) ? data : []);
+      setTests(recordRows(data));
     } catch (err) {
       console.error('Fetch precious metals error:', err);
       toast.error('Failed to load precious metals tests');
@@ -119,7 +120,7 @@ export default function PreciousMetals() {
   const fetchInventory = async () => {
     try {
       const { data } = await api.get('/inventory');
-      setInventoryItems(Array.isArray(data) ? data : []);
+      setInventoryItems(recordRows(data));
     } catch (err) {
       console.error('Fetch inventory error:', err);
     }
@@ -129,7 +130,7 @@ export default function PreciousMetals() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }

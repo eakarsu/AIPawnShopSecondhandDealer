@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import AIResultDisplay from '../components/AIResultDisplay';
+import AIReport from '../components/AIReport';
+import { applyNativePreset, nativePresetLabels } from '../components/pawnAiPresets';
 import { Brain, Gavel, Calendar, Users, Sparkles, ShieldAlert } from 'lucide-react';
 
 const TOOLS = [
@@ -44,6 +45,11 @@ export default function AIPredictive() {
     recent_transactions: '',
     void_history: '',
   });
+
+  const fillPreset = (index) => {
+    const update = { 'auction-price': [auctionForm, setAuctionForm], expiration: [expirationForm, setExpirationForm], 'lifetime-value': [ltvForm, setLtvForm], 'theft-detection': [theftForm, setTheftForm] }[activeTool];
+    update[1](applyNativePreset(activeTool, update[0], index));
+  };
 
   const parseJsonOrText = (s) => {
     if (!s || !s.trim()) return undefined;
@@ -133,6 +139,7 @@ export default function AIPredictive() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <div className="mb-5"><p className="text-sm font-medium text-gray-700">Fill example inputs</p><div className="flex flex-wrap gap-2 mt-2">{nativePresetLabels.map((label, index) => <button type="button" key={label} disabled={loading} onClick={() => fillPreset(index)} className="px-3 py-2 text-sm border rounded-lg bg-amber-50 hover:bg-amber-100 disabled:opacity-50">{label}</button>)}</div><p className="text-xs text-gray-500 mt-2">Record IDs stay as selected. An ID must refer to a real record before analysis.</p></div>
         {activeTool === 'auction-price' && (
           <>
             <h3 className="text-lg font-bold mb-4">Auction Price Suggest</h3>
@@ -270,7 +277,7 @@ export default function AIPredictive() {
 
       {(loading || result) && (
         <div className="mt-6">
-          <AIResultDisplay loading={loading} result={result?.result || result?.data || result} type={activeTool} />
+          <AIReport loading={loading} response={result?.result ?? result?.data ?? result} title={TOOLS.find((tool) => tool.id === activeTool)?.label || 'AI analysis'} />
         </div>
       )}
     </div>

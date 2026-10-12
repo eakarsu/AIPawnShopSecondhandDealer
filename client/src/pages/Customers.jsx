@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
 
@@ -80,12 +81,8 @@ export default function Customers() {
       if (filterFlagged === 'clean') params.flagged = 'false';
 
       const { data } = await api.get('/customers', { params });
-      if (Array.isArray(data)) {
-        setCustomers(data);
-      } else {
-        setCustomers(data.data || []);
-        setPagination(data.pagination || { total: 0, totalPages: 1 });
-      }
+      setCustomers(recordRows(data));
+      setPagination(data?.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
       console.error('Fetch customers error:', err);
       toast.error('Failed to load customers');

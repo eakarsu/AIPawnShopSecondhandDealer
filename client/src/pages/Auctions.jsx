@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -136,7 +137,7 @@ export default function Auctions() {
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== 'all') params.status = statusFilter;
       const { data } = await api.get('/auctions', { params });
-      setAuctions(Array.isArray(data) ? data : []);
+      setAuctions(recordRows(data));
     } catch (err) {
       console.error('Fetch auctions error:', err);
       toast.error('Failed to load auctions');
@@ -156,7 +157,7 @@ export default function Auctions() {
   const fetchAuctionItems = async (auctionId) => {
     try {
       const { data } = await api.get(`/auctions/${auctionId}/items`);
-      setAuctionItems(Array.isArray(data) ? data : []);
+      setAuctionItems(recordRows(data));
     } catch (err) {
       console.error('Fetch auction items error:', err);
       setAuctionItems([]);
@@ -167,11 +168,11 @@ export default function Auctions() {
   const fetchAvailableInventory = async () => {
     try {
       const { data } = await api.get('/inventory', { params: { status: 'available' } });
-      const available = Array.isArray(data) ? data : [];
+      const available = recordRows(data);
       // Also try to fetch defaulted items
       try {
         const { data: defaulted } = await api.get('/inventory', { params: { status: 'defaulted' } });
-        const defaultedItems = Array.isArray(defaulted) ? defaulted : [];
+        const defaultedItems = recordRows(defaulted);
         setAvailableInventory([...available, ...defaultedItems]);
       } catch {
         setAvailableInventory(available);

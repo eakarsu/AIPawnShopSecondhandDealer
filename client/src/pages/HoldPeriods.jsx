@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -116,7 +117,7 @@ export default function HoldPeriods() {
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== 'all') params.status = statusFilter;
       const { data } = await api.get('/hold-periods', { params });
-      setHolds(Array.isArray(data) ? data : []);
+      setHolds(recordRows(data));
     } catch (err) {
       console.error('Fetch hold periods error:', err);
       toast.error('Failed to load hold periods');
@@ -129,7 +130,7 @@ export default function HoldPeriods() {
   const fetchInventory = async () => {
     try {
       const { data } = await api.get('/inventory');
-      setInventoryItems(Array.isArray(data) ? data : []);
+      setInventoryItems(recordRows(data));
     } catch (err) {
       console.error('Fetch inventory error:', err);
     }

@@ -1,3 +1,4 @@
+import AIReportLibrary from "./AIReportLibrary";
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -179,7 +180,7 @@ export default function Layout({ children, onLogout }) {
           <X className="w-5 h-5" />
         </button>
         {sidebarContent}
-      </aside>
+      <AIReportLibrary /></aside>
 
       {/* Sidebar - desktop */}
       <aside

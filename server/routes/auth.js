@@ -48,6 +48,32 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Demo sign-in uses only the configured account and existing password hash.
+router.post('/demo-login', async (req, res) => {
+  if (process.env.NODE_ENV === 'production' || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip)) {
+    return res.status(404).json({ error: 'Local demo login is unavailable' });
+  }
+  const email = process.env.DEMO_EMAIL;
+  const password = process.env.DEMO_PASSWORD;
+  if (!email || !password) return res.status(503).json({ error: 'Demo account is not configured' });
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(503).json({ error: 'Configured demo account is unavailable' });
+    }
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: process.env.GOVERNANCE_TENANT_ID },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  } catch (err) {
+    console.error('Demo login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /me - return current user (protected)
 router.get('/me', authMiddleware, async (req, res) => {
   try {

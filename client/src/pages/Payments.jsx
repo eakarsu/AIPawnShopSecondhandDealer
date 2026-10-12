@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -91,7 +92,7 @@ export default function Payments() {
       const params = {};
       if (search.trim()) params.search = search.trim();
       const { data } = await api.get('/payments', { params });
-      setPayments(Array.isArray(data) ? data : []);
+      setPayments(recordRows(data));
     } catch (err) {
       console.error('Fetch payments error:', err);
       toast.error('Failed to load payments');
@@ -104,7 +105,7 @@ export default function Payments() {
   const fetchActiveLoans = async () => {
     try {
       const { data } = await api.get('/loans', { params: { status: 'active' } });
-      setActiveLoans(Array.isArray(data) ? data : []);
+      setActiveLoans(recordRows(data));
     } catch (err) {
       console.error('Fetch active loans error:', err);
     }

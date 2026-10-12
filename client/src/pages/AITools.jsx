@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
-import AIResultDisplay from '../components/AIResultDisplay';
+import AIReport from '../components/AIReport';
+import { applyNativePreset, nativePresetLabels } from '../components/pawnAiPresets';
 import {
   Brain,
   DollarSign,
@@ -189,8 +191,8 @@ export default function AITools() {
     setHistoryLoading(true);
     try {
       const { data } = await api.get(`/ai/history?page=${page}&limit=20`);
-      setHistory(data.data || []);
-      setHistoryPagination(data.pagination || { total: 0, totalPages: 1 });
+      setHistory(recordRows(data));
+      setHistoryPagination(data?.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
       toast.error('Failed to load AI history');
     } finally {
@@ -209,6 +211,10 @@ export default function AITools() {
       ...prev,
       [toolId]: { ...prev[toolId], [field]: value },
     }));
+  }
+
+  function fillPreset(index) {
+    setForms((previous) => ({ ...previous, [activeTool]: applyNativePreset(activeTool, previous[activeTool], index) }));
   }
 
   function handleToolSelect(toolId) {
@@ -978,9 +984,7 @@ export default function AITools() {
               </div>
               {historyExpanded === entry.id && (
                 <div className="border-t border-gray-100 p-4 bg-gray-50">
-                  <pre className="text-xs text-gray-700 whitespace-pre-wrap overflow-auto max-h-64 font-mono">
-                    {typeof entry.result === 'object' ? JSON.stringify(entry.result, null, 2) : String(entry.result)}
-                  </pre>
+                  <AIReport response={entry.result} title={entry.endpoint || 'Saved AI analysis'} />
                 </div>
               )}
             </div>
@@ -1076,6 +1080,7 @@ export default function AITools() {
 
             {/* Form Body */}
             <form onSubmit={handleSubmit} className="p-6">
+              <div className="mb-5"><p className="text-sm font-medium text-gray-700">Fill example inputs</p><div className="flex flex-wrap gap-2 mt-2">{nativePresetLabels.map((label, index) => <button type="button" key={label} disabled={loading} onClick={() => fillPreset(index)} className="px-3 py-2 text-sm border rounded-lg bg-amber-50 hover:bg-amber-100 disabled:opacity-50">{label}</button>)}</div><p className="text-xs text-gray-500 mt-2">Review examples before analysis. Record IDs and uploaded photos stay as selected.</p></div>
               {formRenderers[activeTool]?.()}
 
               {/* Submit Button */}
@@ -1111,7 +1116,7 @@ export default function AITools() {
       {/* AI Result Display */}
       {(loading || result) && (
         <div className="transition-all duration-300">
-          <AIResultDisplay data={result} type={resultType} isLoading={loading} />
+          <AIReport response={result} title={TOOLS.find((tool) => tool.id === resultType)?.name || 'AI analysis'} loading={loading} />
         </div>
       )}
     </div>

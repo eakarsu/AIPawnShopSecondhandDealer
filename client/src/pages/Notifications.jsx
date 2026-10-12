@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -175,7 +176,7 @@ export default function Notifications() {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (typeFilter !== 'all') params.notification_type = typeFilter;
       const { data } = await api.get('/notifications', { params });
-      setNotifications(Array.isArray(data) ? data : []);
+      setNotifications(recordRows(data));
     } catch (err) {
       console.error('Fetch notifications error:', err);
       toast.error('Failed to load notifications');
@@ -188,7 +189,7 @@ export default function Notifications() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }
@@ -198,7 +199,7 @@ export default function Notifications() {
   const fetchActiveLoans = async () => {
     try {
       const { data } = await api.get('/loans', { params: { status: 'active' } });
-      setActiveLoans(Array.isArray(data) ? data : []);
+      setActiveLoans(recordRows(data));
     } catch (err) {
       console.error('Fetch active loans error:', err);
     }

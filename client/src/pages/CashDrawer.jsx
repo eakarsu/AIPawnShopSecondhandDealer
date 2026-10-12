@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -117,7 +118,7 @@ export default function CashDrawer() {
     setLoading(true);
     try {
       const { data } = await api.get('/cash-drawer');
-      setDrawers(Array.isArray(data) ? data : []);
+      setDrawers(recordRows(data));
     } catch (err) {
       console.error('Fetch drawers error:', err);
       toast.error('Failed to load cash drawers');

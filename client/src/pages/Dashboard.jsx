@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 
 const featureCards = [
   {
@@ -280,18 +281,18 @@ export default function Dashboard() {
       const auctions = auctionsRes.status === 'fulfilled' ? auctionsRes.value.data : [];
       const notifications = notificationsRes.status === 'fulfilled' ? notificationsRes.value.data : [];
 
-      const customersArr = Array.isArray(customers) ? customers : [];
-      const loansArr = Array.isArray(loans) ? loans : [];
-      const inventoryArr = Array.isArray(inventory) ? inventory : [];
-      const paymentsArr = Array.isArray(payments) ? payments : [];
-      const layawayArr = Array.isArray(layaway) ? layaway : [];
-      const holdPeriodsArr = Array.isArray(holdPeriods) ? holdPeriods : [];
-      const preciousMetalsArr = Array.isArray(preciousMetals) ? preciousMetals : [];
-      const firearmsArr = Array.isArray(firearms) ? firearms : [];
-      const policeReportsArr = Array.isArray(policeReports) ? policeReports : [];
-      const receiptsArr = Array.isArray(receipts) ? receipts : [];
-      const auctionsArr = Array.isArray(auctions) ? auctions : [];
-      const notificationsArr = Array.isArray(notifications) ? notifications : [];
+      const customersArr = recordRows(customers);
+      const loansArr = recordRows(loans);
+      const inventoryArr = recordRows(inventory);
+      const paymentsArr = recordRows(payments);
+      const layawayArr = recordRows(layaway);
+      const holdPeriodsArr = recordRows(holdPeriods);
+      const preciousMetalsArr = recordRows(preciousMetals);
+      const firearmsArr = recordRows(firearms);
+      const policeReportsArr = recordRows(policeReports);
+      const receiptsArr = recordRows(receipts);
+      const auctionsArr = recordRows(auctions);
+      const notificationsArr = recordRows(notifications);
 
       const activeLoans = loansArr.filter(
         (l) => l.status === 'active' || l.status === 'Active'

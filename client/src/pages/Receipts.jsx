@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -149,7 +150,7 @@ export default function Receipts() {
       if (search.trim()) params.search = search.trim();
       if (typeFilter) params.receipt_type = typeFilter;
       const { data } = await api.get('/receipts', { params });
-      setReceipts(Array.isArray(data) ? data : []);
+      setReceipts(recordRows(data));
     } catch (err) {
       console.error('Fetch receipts error:', err);
       toast.error('Failed to load receipts');
@@ -162,7 +163,7 @@ export default function Receipts() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }

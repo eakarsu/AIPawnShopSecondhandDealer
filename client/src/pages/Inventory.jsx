@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -127,12 +128,8 @@ export default function Inventory() {
       if (filterStatus) params.status = filterStatus;
 
       const { data } = await api.get('/inventory', { params });
-      if (Array.isArray(data)) {
-        setItems(data);
-      } else {
-        setItems(data.data || []);
-        setPagination(data.pagination || { total: 0, totalPages: 1 });
-      }
+      setItems(recordRows(data));
+      setPagination(data?.pagination || { total: 0, totalPages: 1 });
     } catch (err) {
       console.error('Fetch inventory error:', err);
       toast.error('Failed to load inventory');

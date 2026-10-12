@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -117,7 +118,7 @@ export default function PoliceReports() {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (typeFilter !== 'all') params.report_type = typeFilter;
       const { data } = await api.get('/police-reports', { params });
-      setReports(Array.isArray(data) ? data : []);
+      setReports(recordRows(data));
     } catch (err) {
       console.error('Fetch police reports error:', err);
       toast.error('Failed to load police reports');
@@ -129,7 +130,7 @@ export default function PoliceReports() {
   const fetchInventory = async () => {
     try {
       const { data } = await api.get('/inventory');
-      setInventoryItems(Array.isArray(data) ? data : []);
+      setInventoryItems(recordRows(data));
     } catch (err) {
       console.error('Fetch inventory error:', err);
     }
@@ -138,7 +139,7 @@ export default function PoliceReports() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }

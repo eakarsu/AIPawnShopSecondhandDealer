@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { recordRows } from '../services/recordRows';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import DetailPanel from '../components/DetailPanel';
@@ -109,7 +110,7 @@ export default function Firearms() {
       if (typeFilter !== 'all') params.firearm_type = typeFilter;
       if (transFilter !== 'all') params.transaction_type = transFilter;
       const { data } = await api.get('/firearms', { params });
-      setFirearms(Array.isArray(data) ? data : []);
+      setFirearms(recordRows(data));
     } catch (err) {
       console.error('Fetch firearms error:', err);
       toast.error('Failed to load firearms log');
@@ -122,7 +123,7 @@ export default function Firearms() {
   const fetchInventory = async () => {
     try {
       const { data } = await api.get('/inventory');
-      setInventoryItems(Array.isArray(data) ? data : []);
+      setInventoryItems(recordRows(data));
     } catch (err) {
       console.error('Fetch inventory error:', err);
     }
@@ -132,7 +133,7 @@ export default function Firearms() {
   const fetchCustomers = async () => {
     try {
       const { data } = await api.get('/customers');
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(recordRows(data));
     } catch (err) {
       console.error('Fetch customers error:', err);
     }
