@@ -45,6 +45,7 @@ app.use('/api/cash-drawer', require('./routes/cash-drawer'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/feature-pack', require('./routes/featurePack')(require('./middleware/auth')));
 app.use('/api/hold-periods', require('./routes/hold-periods'));
 app.use('/api/auctions', require('./routes/auctions'));
 app.use('/api/receipts', require('./routes/receipts'));
